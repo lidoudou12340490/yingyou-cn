@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101419">
+  <title>潮汐偏移 | 節奏遊戲</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f2f2e9;
+      --muted: #a0a9a8;
+      --night: #101419;
+      --panel: rgba(20, 27, 31, .82);
+      --line: rgba(232, 241, 235, .18);
+      --mint: #8ef0d0;
+      --coral: #ff806c;
+      --sun: #f4ce78;
+      font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--night); color: var(--ink); }
+    button { color: inherit; font: inherit; }
+    .arena {
+      position: relative;
+      width: 100%; height: 100%; min-height: 480px; overflow: hidden;
+      background: radial-gradient(ellipse at 50% 54%, #202b2d 0%, #151d21 37%, #101419 78%);
+      isolation: isolate;
+      touch-action: none;
+      user-select: none;
+    }
+    #field { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .grain {
+      position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .11;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
+    }
+    .topbar {
+      position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 76px;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 5.2vw;
+      border-bottom: 1px solid rgba(225, 239, 233, .09);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .brand-mark { width: 25px; height: 25px; border: 1px solid var(--mint); border-radius: 50%; position: relative; }
+    .brand-mark::before, .brand-mark::after { content: ""; position: absolute; background: var(--mint); }
+    .brand-mark::before { width: 1px; height: 31px; left: 11px; top: -4px; transform: rotate(35deg); }
+    .brand-mark::after { width: 31px; height: 1px; top: 11px; left: -4px; transform: rotate(-20deg); }
+    .brand-name { font-family: Georgia, serif; font-size: 17px; letter-spacing: 1.5px; }
+    .brand-note { margin-left: 2px; font-size: 10px; color: var(--muted); letter-spacing: 1.4px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .icon-button {
+      min-width: 40px; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 2px;
+      background: rgba(14, 20, 23, .36); color: var(--ink); cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    .icon-button:hover, .icon-button:focus-visible { border-color: var(--mint); background: rgba(142, 240, 208, .08); outline: none; }
+    .icon-button[hidden] { display: none; }
+    .ready-panel, .result-panel, .pause-panel {
+      position: absolute; z-index: 2; left: max(8vw, 24px); top: 50%; width: min(460px, 84vw);
+      transform: translateY(-49%); animation: reveal .7s cubic-bezier(.2,.7,.2,1) both;
+    }
+    @keyframes reveal { from { opacity: 0; transform: translateY(calc(-49% + 12px)); } to { opacity: 1; transform: translateY(-49%); } }
+    .kicker { color: var(--mint); font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; }
+    h1 { margin: 18px 0 8px; font: normal 54px/1.05 Georgia, "Noto Serif", serif; letter-spacing: 0; }
+    .subtitle { margin: 0; color: #c1c9c3; font: 17px/1.6 Georgia, serif; }
+    .track-meta { display: flex; align-items: center; gap: 18px; margin: 30px 0 25px; color: var(--muted); font-size: 12px; }
+    .track-meta span + span { padding-left: 18px; border-left: 1px solid var(--line); }
+    .track-meta strong { color: var(--ink); font-size: 13px; font-weight: 500; }
+    .difficulty-label { margin: 0 0 10px; color: var(--muted); font-size: 10px; letter-spacing: 1.7px; }
+    .difficulty { display: flex; width: fit-content; border: 1px solid var(--line); }
+    .difficulty button {
+      min-width: 86px; padding: 10px 14px; border: 0; border-right: 1px solid var(--line); background: transparent;
+      color: var(--muted); font-size: 12px; cursor: pointer; transition: color .2s, background .2s;
+    }
+    .difficulty button:last-child { border-right: 0; }
+    .difficulty button[aria-pressed="true"] { color: var(--night); background: var(--mint); }
+    .difficulty button:focus-visible, .primary-button:focus-visible, .hit-button:focus-visible { outline: 2px solid var(--sun); outline-offset: 3px; }
+    .primary-button {
+      display: inline-flex; align-items: center; gap: 20px; min-width: 190px; margin-top: 27px; padding: 15px 18px;
+      border: 1px solid var(--mint); border-radius: 2px; background: var(--mint); color: #10201d;
+      font-size: 13px; font-weight: 700; letter-spacing: 1.2px; cursor: pointer; transition: background .2s, color .2s;
+    }
+    .primary-button:hover { background: transparent; color: var(--mint); }
+    .arrow { font-size: 19px; line-height: 12px; }
+    .key-hint { margin: 15px 0 0; color: #899492; font-size: 11px; }
+    .right-note { position: absolute; z-index: 1; right: 5.2vw; bottom: 52px; color: #9da9a4; font: italic 12px/1.7 Georgia, serif; text-align: right; }
+    .right-note strong { display: block; color: var(--mint); font: normal 10px/1.7 "Avenir Next", sans-serif; letter-spacing: 1.8px; }
+    .hud { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
+    .hud[hidden] { display: none; }
+    .scorebox { position: absolute; left: 5.2vw; top: 105px; }
+    .score-label { color: var(--muted); font-size: 10px; letter-spacing: 2px; }
+    .score { margin-top: 5px; font: 30px/1 Georgia, serif; font-variant-numeric: tabular-nums; }
+    .combo-box { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); text-align: center; }
+    .combo { font: 40px/1 Georgia, serif; font-variant-numeric: tabular-nums; }
+    .combo-label { margin-top: 5px; color: var(--muted); font-size: 9px; letter-spacing: 2px; }
+    .progress-wrap { position: absolute; top: 77px; left: 0; right: 0; height: 2px; background: rgba(230, 240, 234, .12); }
+    .progress { width: 0; height: 100%; background: var(--mint); transition: width .1s linear; }
+    .judgement { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); color: var(--mint); font: 16px Georgia, serif; letter-spacing: 2px; opacity: 0; text-shadow: 0 0 20px currentColor; transition: opacity .12s; }
+    .judgement.show { opacity: 1; }
+    .hit-button {
+      position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+      width: 118px; height: 48px; border: 1px solid rgba(142, 240, 208, .6); border-radius: 2px;
+      background: rgba(13, 22, 23, .68); color: var(--mint); font-size: 11px; letter-spacing: 2px;
+      pointer-events: auto; cursor: pointer; touch-action: none;
+    }
+    .hit-button:active { background: var(--mint); color: #10201d; }
+    .result-panel, .pause-panel { width: min(400px, 84vw); }
+    .result-panel h2, .pause-panel h2 { margin: 14px 0 5px; font: normal 38px Georgia, serif; }
+    .rank { margin: 10px 0 20px; color: var(--mint); font: normal 76px/1 Georgia, serif; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 18px; border-top: 1px solid var(--line); }
+    .stat { padding: 14px 0 12px; border-bottom: 1px solid var(--line); }
+    .stat:nth-child(odd) { margin-right: 20px; }
+    .stat span { display: block; color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+    .stat strong { display: block; margin-top: 6px; font: 22px Georgia, serif; }
+    .result-panel .primary-button, .pause-panel .primary-button { margin-top: 22px; }
+    .pause-panel { left: 50%; transform: translate(-50%, -50%); text-align: center; padding: 32px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(12px); }
+    .pause-panel[hidden], .ready-panel[hidden], .result-panel[hidden] { display: none; }
+    .pause-panel .primary-button { justify-content: center; }
+    .flash { position: absolute; z-index: 1; inset: 0; pointer-events: none; background: var(--mint); opacity: 0; }
+    .flash.on { animation: flash .18s ease-out; }
+    @keyframes flash { 0% { opacity: .12; } 100% { opacity: 0; } }
+    @media (max-width: 680px) {
+      .topbar { height: 64px; padding: 0 20px; }
+      .brand-name { font-size: 15px; }
+      .brand-note { display: none; }
+      .ready-panel { left: 24px; top: 47%; width: calc(100% - 48px); }
+      h1 { font-size: 46px; }
+      .track-meta { margin: 22px 0 22px; gap: 12px; }
+      .track-meta span + span { padding-left: 12px; }
+      .difficulty button { min-width: 74px; padding: 10px; }
+      .right-note { right: 24px; bottom: 20px; font-size: 11px; }
+      .scorebox { left: 20px; top: 84px; }
+      .combo-box { top: 91px; }
+      .progress-wrap { top: 65px; }
+      .judgement { top: 37%; }
+    }
+    @media (max-height: 620px) and (min-width: 681px) {
+      .ready-panel { top: 53%; transform: translateY(-50%) scale(.88); transform-origin: left center; }
+      h1 { margin-top: 10px; font-size: 46px; }
+      .track-meta { margin: 18px 0; }
+      .right-note { bottom: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="arena" id="arena" aria-label="潮汐偏移音樂遊戲">
+    <canvas id="field" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="潮汐偏移">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">TIDE SHIFT</span><span class="brand-note">RHYTHM STUDY 01</span>
+      </a>
+      <div class="top-actions">
+        <button class="icon-button" id="soundButton" type="button" aria-label="開啟或關閉音效" title="音效：開">♫</button>
+        <button class="icon-button" id="pauseButton" type="button" aria-label="暫停" title="暫停" hidden>Ⅱ</button>
+      </div>
+    </header>
+
+    <section class="ready-panel" id="readyPanel">
+      <div class="kicker">原創節奏遊戲 · 01</div>
+      <h1>潮汐偏移</h1>
+      <p class="subtitle">當節拍漂浮，跟著光的方向落下。</p>
+      <div class="track-meta"><span><strong>LOW TIDE / 01</strong></span><span>合成音源</span><span>116 BPM</span></div>
+      <p class="difficulty-label">選擇難度</p>
+      <div class="difficulty" role="group" aria-label="選擇難度">
+        <button type="button" data-difficulty="easy" aria-pressed="false">初見</button>
+        <button type="button" data-difficulty="normal" aria-pressed="true">標準</button>
+        <button type="button" data-difficulty="hard" aria-pressed="false">流速</button>
+      </div>
+      <button class="primary-button" id="startButton" type="button"><span>開始演奏</span><span class="arrow" aria-hidden="true">↗</span></button>
+      <p class="key-hint">點擊判定 · 空白鍵操作 · 滑動完成 FLICK</p>
+    </section>
+
+    <div class="right-note" id="sideNote"><strong>A MOVING LINE, A LIVING BEAT</strong>原創合成曲 · 約 30 秒</div>
+
+    <section class="hud" id="hud" aria-live="polite" hidden>
+      <div class="progress-wrap"><div class="progress" id="progress"></div></div>
+      <div class="scorebox"><div class="score-label">SCORE</div><div class="score" id="score">0000000</div></div>
+      <div class="combo-box"><div class="combo" id="combo">0</div><div class="combo-label">COMBO</div></div>
+      <div class="judgement" id="judgement">PERFECT</div>
+      <button class="hit-button" id="hitButton" type="button" aria-label="點擊判定">TAP / SPACE</button>
+    </section>
+
+    <section class="result-panel" id="resultPanel" hidden>
+      <div class="kicker">演奏完成 · <span id="resultDifficulty">標準</span></div>
+      <h2>潮汐已退。</h2>
+      <div class="rank" id="rank">A</div>
+      <div class="stats">
+        <div class="stat"><span>總分</span><strong id="finalScore">0</strong></div>
+        <div class="stat"><span>準確率</span><strong id="accuracy">0.00%</strong></div>
+        <div class="stat"><span>最高連擊</span><strong id="maxCombo">0</strong></div>
+        <div class="stat"><span>判定</span><strong id="judgementCounts">0 / 0 / 0</strong></div>
+      </div>
+      <button class="primary-button" id="retryButton" type="button"><span>再次演奏</span><span class="arrow" aria-hidden="true">↗</span></button>
+    </section>
+
+    <section class="pause-panel" id="pausePanel" hidden>
+      <div class="kicker">演奏暫停</div><h2>稍作停留。</h2>
+      <button class="primary-button" id="resumeButton" type="button">繼續演奏 <span class="arrow" aria-hidden="true">↗</span></button>
+    </section>
+    <div class="flash" id="flash" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+      const arena = document.querySelector("#arena");
+      const canvas = document.querySelector("#field");
+      const ctx = canvas.getContext("2d");
+      const readyPanel = document.querySelector("#readyPanel");
+      const resultPanel = document.querySelector("#resultPanel");
+      const pausePanel = document.querySelector("#pausePanel");
+      const hud = document.querySelector("#hud");
+      const pauseButton = document.querySelector("#pauseButton");
+      const soundButton = document.querySelector("#soundButton");
+      const progress = document.querySelector("#progress");
+      const scoreLabel = document.querySelector("#score");
+      const comboLabel = document.querySelector("#combo");
+      const judgementLabel = document.querySelector("#judgement");
+      const flash = document.querySelector("#flash");
+      const bpm = 116;
+      const beat = 60 / bpm;
+      const difficultyNames = { easy: "初見", normal: "標準", hard: "流速" };
+      let difficulty = "normal";
+      let phase = "ready";
+      let chart = [];
+      let duration = 0;
+      let score = 0;
+      let combo = 0;
+      let maxCombo = 0;
+      let earned = 0;
+      let judgedCount = 0;
+      let counts = { perfect: 0, good: 0, miss: 0 };
+      let activeHold = null;
+      let pointerHeld = false;
+      let keyHeld = false;
+      let pointerOrigin = null;
+      let audio = null;
+      let master = null;
+      let muted = false;
+      let songStart = 0;
+      let pausedAt = 0;
+      let toastTimer = 0;
+      let width = innerWidth;
+      let height = innerHeight;
+      let dpr = 1;
+
+      function resize() {
+        width = innerWidth;
+        height = innerHeight;
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      addEventListener("resize", resize);
+      resize();
+
+      function buildChart() {
+        const step = difficulty === "hard" ? beat * .5 : beat;
+        const steps = difficulty === "easy" ? 38 : difficulty === "hard" ? 88 : 56;
+        chart = [];
+        for (let i = 0; i < steps; i++) {
+          if (difficulty === "easy" && i % 5 === 3) continue;
+          if (difficulty === "normal" && i % 11 === 7) continue;
+          const kind = difficulty === "easy" ? "tap" : (i % 17 === 10 ? "hold" : i % 9 === 5 ? "flick" : "tap");
+          chart.push({
+            time: 2.2 + i * step,
+            kind,
+            length: kind === "hold" ? beat * 1.35 : 0,
+            index: i,
+            done: false,
+            started: false
+          });
+        }
+        duration = chart[chart.length - 1].time + 1.5;
+      }
+
+      function lineAt(time) {
+        const cx = width * (.5 + Math.sin(time * .49) * .15);
+        const cy = height * (.51 + Math.sin(time * .73 + .6) * .105);
+        const angle = Math.sin(time * .38) * .7 + Math.cos(time * .19) * .26;
+        return { x: cx, y: cy, angle };
+      }
+
+      function noteEnds(note) {
+        const line = lineAt(note.time);
+        const lane = ((note.index % 3) - 1) * Math.min(45, width * .055);
+        const x = line.x + Math.cos(line.angle) * lane;
+        const y = line.y + Math.sin(line.angle) * lane;
+        const approachAngle = line.angle + (note.index % 2 ? 2.25 : -2.25);
+        const distance = Math.min(330, Math.max(190, width * .29));
+        return { x, y, sx: x + Math.cos(approachAngle) * distance, sy: y + Math.sin(approachAngle) * distance };
+      }
+
+      function drawBackground(time) {
+        ctx.clearRect(0, 0, width, height);
+        const glow = ctx.createRadialGradient(width * .5, height * .54, 12, width * .5, height * .54, Math.max(width, height) * .7);
+        glow.addColorStop(0, "rgba(66, 119, 105, .12)");
+        glow.addColorStop(.55, "rgba(28, 50, 49, .055)");
+        glow.addColorStop(1, "rgba(10, 14, 18, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, width, height);
+
+        for (let i = 0; i < 54; i++) {
+          const x = ((i * 137.5) % width + width) % width;
+          const y = ((i * 79.3) % height + height) % height;
+          const alpha = .12 + (Math.sin(time * .8 + i * 4) + 1) * .11;
+          ctx.fillStyle = `rgba(195, 229, 213, ${alpha})`;
+          ctx.fillRect(x, y, i % 7 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1);
+        }
+        ctx.save();
+        ctx.strokeStyle = "rgba(186, 217, 205, .045)";
+        ctx.lineWidth = 1;
+        const shift = (time * 8) % 44;
+        for (let x = -height; x < width + height; x += 44) {
+          ctx.beginPath(); ctx.moveTo(x + shift, 0); ctx.lineTo(x - height + shift, height); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawLine(time) {
+        const line = lineAt(time);
+        const len = Math.min(width * .29, 210);
+        const x1 = line.x - Math.cos(line.angle) * len;
+        const y1 = line.y - Math.sin(line.angle) * len;
+        const x2 = line.x + Math.cos(line.angle) * len;
+        const y2 = line.y + Math.sin(line.angle) * len;
+        ctx.save();
+        ctx.shadowColor = "#8ef0d0";
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(142, 240, 208, .9)";
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#e3fff1";
+        ctx.beginPath(); ctx.arc(line.x, line.y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      function drawNote(note, time) {
+        const approach = difficulty === "hard" ? 1.3 : 1.7;
+        const p = (time - (note.time - approach)) / approach;
+        if (p < 0 || p > 1.24 || note.done) return;
+        const end = noteEnds(note);
+        const x = end.sx + (end.x - end.sx) * p;
+        const y = end.sy + (end.y - end.sy) * p;
+        const color = note.kind === "flick" ? "#ff806c" : note.kind === "hold" ? "#f4ce78" : "#d8fff0";
+        const radius = 7 + Math.min(3, p * 3);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, Math.max(.18, 1 - Math.max(0, p - 1) * 2));
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 15;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (note.kind === "flick") {
+          ctx.moveTo(x, y - radius); ctx.lineTo(x + radius, y); ctx.lineTo(x, y + radius); ctx.lineTo(x - radius, y); ctx.closePath();
+          ctx.fill();
+          ctx.beginPath(); ctx.moveTo(x - 3, y + 17); ctx.lineTo(x + 3, y + 8); ctx.lineTo(x + 9, y + 17); ctx.stroke();
+        } else {
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          if (note.kind === "hold") {
+            ctx.globalAlpha *= .28; ctx.fill(); ctx.globalAlpha = 1;
+            ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.stroke();
+          } else ctx.fill();
+        }
+        if (note.kind === "hold" && p < 1) {
+          ctx.globalAlpha = .35; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(end.x, end.y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function render() {
+        const time = phase === "playing" || phase === "paused" ? getTime() : performance.now() / 1000;
+        drawBackground(time);
+        if (phase === "playing" || phase === "paused") {
+          for (const note of chart) drawNote(note, time);
+          drawLine(time);
+        } else {
+          drawLine(time);
+          const demo = [
+            { time: time + .1, kind: "tap", index: 0, done: false },
+            { time: time + .65, kind: "flick", index: 1, done: false },
+            { time: time + 1.1, kind: "hold", index: 2, done: false }
+          ];
+          demo.forEach(note => drawNote(note, time));
+        }
+        requestAnimationFrame(render);
+      }
+      requestAnimationFrame(render);
+
+      function getTime() {
+        if (!audio) return phase === "paused" ? pausedAt : Math.max(0, (performance.now() - songStart) / 1000);
+        return phase === "paused" ? pausedAt : Math.max(0, audio.currentTime - songStart);
+      }
+
+      function ensureAudio() {
+        if (audio) return;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        audio = new AudioContextClass();
+        master = audio.createGain();
+        master.gain.value = muted ? 0 : .23;
+        master.connect(audio.destination);
+      }
+
+      function tone(frequency, at, length, type, volume, endFrequency) {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, at);
+        if (endFrequency) osc.frequency.exponentialRampToValueAtTime(endFrequency, at + Math.max(.025, length));
+        gain.gain.setValueAtTime(.0001, at);
+        gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), at + .012);
+        gain.gain.exponentialRampToValueAtTime(.0001, at + length);
+        osc.connect(gain); gain.connect(master);
+        osc.start(at); osc.stop(at + length + .025);
+      }
+
+      function scheduleMusic(startAt) {
+        const notes = [0, 3, 7, 10, 7, 5, 2, 5];
+        const scale = [220, 246.94, 293.66, 329.63, 369.99, 440, 493.88, 587.33, 659.25, 739.99, 880];
+        const totalBeats = Math.ceil(duration / beat);
+        for (let i = 0; i < totalBeats; i++) {
+          const at = startAt + i * beat;
+          if (i % 4 === 0) tone(105, at, .22, "sine", .5, 48);
+          if (i % 4 === 2) tone(175, at, .11, "triangle", .15, 110);
+          tone(1180, at + .01, .035, "square", .025, 660);
+          if (i % 2 === 0) {
+            const idx = (notes[(i / 2) % notes.length] + ((Math.floor(i / 16) % 2) * 2)) % scale.length;
+            tone(scale[idx], at, .22, "triangle", .115);
+            tone(scale[idx] / 2, at, .32, "sine", .08);
+          }
+          if (i % 4 === 1) tone(scale[(notes[Math.floor(i / 2) % notes.length] + 3) % scale.length], at, .11, "sine", .055);
+        }
+      }
+
+      function resetRun() {
+        buildChart();
+        score = combo = maxCombo = earned = judgedCount = 0;
+        counts = { perfect: 0, good: 0, miss: 0 };
+        activeHold = null;
+        pointerHeld = keyHeld = false;
+        scoreLabel.textContent = "0000000";
+        comboLabel.textContent = "0";
+        progress.style.width = "0%";
+      }
+
+      async function startGame() {
+        resetRun();
+        try {
+          ensureAudio();
+          if (audio) {
+            await audio.resume();
+            songStart = audio.currentTime + .12;
+            scheduleMusic(songStart);
+          } else songStart = performance.now() + 120;
+        } catch (error) {
+          songStart = performance.now() + 120;
+        }
+        phase = "playing";
+        readyPanel.hidden = true;
+        resultPanel.hidden = true;
+        pausePanel.hidden = true;
+        document.querySelector("#sideNote").hidden = true;
+        hud.hidden = false;
+        pauseButton.hidden = false;
+        flash.classList.add("on");
+        setTimeout(() => flash.classList.remove("on"), 220);
+        requestAnimationFrame(updateGame);
+      }
+
+      function showJudgement(text, color) {
+        judgementLabel.textContent = text;
+        judgementLabel.style.color = color;
+        judgementLabel.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => judgementLabel.classList.remove("show"), 360);
+      }
+
+      function finishNote(note, grade) {
+        if (note.done) return;
+        note.done = true;
+        judgedCount++;
+        if (grade === "miss") {
+          counts.miss++;
+          combo = 0;
+          showJudgement("MISS", "#ff806c");
+        } else {
+          const points = grade === "perfect" ? 1000 : 650;
+          earned += points;
+          score = Math.round(earned * 1000000 / (chart.length * 1000));
+          counts[grade]++;
+          combo++;
+          maxCombo = Math.max(maxCombo, combo);
+          showJudgement(grade === "perfect" ? "PERFECT" : "GREAT", grade === "perfect" ? "#8ef0d0" : "#f4ce78");
+        }
+        scoreLabel.textContent = String(score).padStart(7, "0");
+        comboLabel.textContent = String(combo);
+      }
+
+      function updateGame() {
+        if (phase !== "playing") return;
+        const time = getTime();
+        progress.style.width = `${Math.min(100, time / duration * 100)}%`;
+        for (const note of chart) {
+          if (!note.done && !note.started && time > note.time + .19) finishNote(note, "miss");
+        }
+        if (activeHold && time >= activeHold.time + activeHold.length) {
+          const hold = activeHold;
+          activeHold = null;
+          finishNote(hold, pointerHeld || keyHeld ? "perfect" : "miss");
+        }
+        if (time > duration && chart.every(note => note.done)) finishGame();
+        requestAnimationFrame(updateGame);
+      }
+
+      function closestNote(time, x, y) {
+        let best = null;
+        let delta = Infinity;
+        for (const note of chart) {
+          if (note.done || note.started) continue;
+          const dt = note.time - time;
+          if (dt > .2 || dt < -.19) continue;
+          const distance = Math.abs(dt);
+          if (distance >= delta) continue;
+          const end = noteEnds(note);
+          if (x !== undefined) {
+            const approach = difficulty === "hard" ? 1.3 : 1.7;
+            const p = Math.max(0, Math.min(1, (time - (note.time - approach)) / approach));
+            const nx = end.sx + (end.x - end.sx) * p;
+            const ny = end.sy + (end.y - end.sy) * p;
+            if (Math.hypot(nx - x, ny - y) > Math.max(105, width * .13)) continue;
+          }
+          best = note;
+          delta = distance;
+        }
+        return best;
+      }
+
+      function hit(x, y, flick = false) {
+        if (phase !== "playing") return;
+        const time = getTime();
+        const note = closestNote(time, x, y);
+        if (!note) return;
+        const diff = Math.abs(note.time - time);
+        if (note.kind === "hold") {
+          note.started = true;
+          activeHold = note;
+          showJudgement("HOLD", "#f4ce78");
+          return;
+        }
+        if (note.kind === "flick" && !flick && x !== undefined) {
+          return;
+        }
+        finishNote(note, diff <= .065 ? "perfect" : diff <= .145 ? "good" : "miss");
+      }
+
+      function finishGame() {
+        phase = "result";
+        hud.hidden = true;
+        pauseButton.hidden = true;
+        resultPanel.hidden = false;
+        document.querySelector("#resultDifficulty").textContent = difficultyNames[difficulty];
+        document.querySelector("#finalScore").textContent = String(score).padStart(7, "0");
+        const accuracy = chart.length ? earned / (chart.length * 1000) * 100 : 0;
+        document.querySelector("#accuracy").textContent = `${accuracy.toFixed(2)}%`;
+        document.querySelector("#maxCombo").textContent = String(maxCombo);
+        document.querySelector("#judgementCounts").textContent = `${counts.perfect} / ${counts.good} / ${counts.miss}`;
+        document.querySelector("#rank").textContent = accuracy >= 99 ? "S" : accuracy >= 90 ? "A" : accuracy >= 75 ? "B" : accuracy >= 60 ? "C" : "D";
+        if (audio && audio.state === "running") audio.suspend();
+      }
+
+      async function togglePause() {
+        if (phase === "playing") {
+          pausedAt = getTime();
+          phase = "paused";
+          pausePanel.hidden = false;
+          if (audio && audio.state === "running") await audio.suspend();
+        } else if (phase === "paused") {
+          phase = "playing";
+          pausePanel.hidden = true;
+          if (audio && audio.state === "suspended") {
+            await audio.resume();
+            songStart = audio.currentTime - pausedAt;
+          } else songStart = performance.now() - pausedAt * 1000;
+          requestAnimationFrame(updateGame);
+        }
+      }
+
+      document.querySelectorAll("[data-difficulty]").forEach(button => {
+        button.addEventListener("click", () => {
+          difficulty = button.dataset.difficulty;
+          document.querySelectorAll("[data-difficulty]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+        });
+      });
+      document.querySelector("#startButton").addEventListener("click", startGame);
+      document.querySelector("#retryButton").addEventListener("click", startGame);
+      document.querySelector("#resumeButton").addEventListener("click", togglePause);
+      pauseButton.addEventListener("click", togglePause);
+      soundButton.addEventListener("click", () => {
+        muted = !muted;
+        soundButton.textContent = muted ? "♪" : "♫";
+        soundButton.title = muted ? "音效：關" : "音效：開";
+        if (master) master.gain.setTargetAtTime(muted ? 0 : .23, audio.currentTime, .025);
+      });
+
+      arena.addEventListener("pointerdown", event => {
+        if (phase !== "playing" || event.target.closest("button:not(#hitButton), a")) return;
+        event.preventDefault();
+        arena.setPointerCapture(event.pointerId);
+        pointerHeld = true;
+        pointerOrigin = { x: event.clientX, y: event.clientY, at: performance.now() };
+        hit(event.clientX, event.clientY, false);
+      });
+      arena.addEventListener("pointerup", event => {
+        if (!pointerHeld) return;
+        pointerHeld = false;
+        if (activeHold && !keyHeld) {
+          const hold = activeHold;
+          activeHold = null;
+          finishNote(hold, getTime() >= hold.time + hold.length - .08 ? "perfect" : "miss");
+        }
+        if (pointerOrigin && performance.now() - pointerOrigin.at < 260 && Math.hypot(event.clientX - pointerOrigin.x, event.clientY - pointerOrigin.y) > 30) {
+          hit(event.clientX, event.clientY, true);
+        }
+        pointerOrigin = null;
+      });
+      arena.addEventListener("pointercancel", () => { pointerHeld = false; pointerOrigin = null; });
+
+      addEventListener("keydown", event => {
+        if (event.code === "Escape" && (phase === "playing" || phase === "paused")) { togglePause(); return; }
+        if (event.code === "Space" && !event.repeat && phase === "playing") {
+          event.preventDefault(); keyHeld = true; hit(undefined, undefined, false);
+        }
+      });
+      addEventListener("keyup", event => {
+        if (event.code === "Space") {
+          keyHeld = false;
+          if (activeHold && !pointerHeld) {
+            const hold = activeHold; activeHold = null;
+            finishNote(hold, getTime() >= hold.time + hold.length - .08 ? "perfect" : "miss");
+          }
+        }
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && phase === "playing") togglePause();
+      });
+    })();
+  </script>
+</body>
+</html>

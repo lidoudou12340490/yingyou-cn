@@ -53,7 +53,7 @@
     }
     .icon-button:hover, .icon-button:focus-visible { border-color: var(--mint); background: rgba(142, 240, 208, .08); outline: none; }
     .icon-button[hidden] { display: none; }
-    .ready-panel, .result-panel, .pause-panel {
+    .ready-panel, .story-panel, .result-panel, .pause-panel {
       position: absolute; z-index: 2; left: max(8vw, 24px); top: 50%; width: min(460px, 84vw);
       transform: translateY(-49%); animation: reveal .7s cubic-bezier(.2,.7,.2,1) both;
     }
@@ -81,6 +81,15 @@
     .primary-button:hover { background: transparent; color: var(--mint); }
     .arrow { font-size: 19px; line-height: 12px; }
     .key-hint { margin: 15px 0 0; color: #899492; font-size: 11px; }
+    .story-panel { width: min(540px, 84vw); }
+    .story-panel[hidden] { display: none; }
+    .story-panel h2 { margin: 20px 0 15px; font: normal 38px/1.2 Georgia, "Noto Serif", serif; }
+    .story-copy { max-width: 520px; min-height: 112px; margin: 0; color: #c1c9c3; font: 17px/1.9 Georgia, "Noto Serif", serif; }
+    .story-progress { margin-top: 23px; color: var(--muted); font-size: 10px; letter-spacing: 2px; }
+    .story-controls { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+    .text-button { padding: 12px 0; border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+    .text-button:hover, .text-button:focus-visible { color: var(--mint); outline: none; }
+    .story-controls .primary-button { margin-top: 10px; }
     .right-note { position: absolute; z-index: 1; right: 5.2vw; bottom: 52px; color: #9da9a4; font: italic 12px/1.7 Georgia, serif; text-align: right; }
     .right-note strong { display: block; color: var(--mint); font: normal 10px/1.7 "Avenir Next", sans-serif; letter-spacing: 1.8px; }
     .hud { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
@@ -105,6 +114,9 @@
     .result-panel, .pause-panel { width: min(400px, 84vw); }
     .result-panel h2, .pause-panel h2 { margin: 14px 0 5px; font: normal 38px Georgia, serif; }
     .rank { margin: 10px 0 20px; color: var(--mint); font: normal 76px/1 Georgia, serif; }
+    .epilogue { max-width: 400px; margin: 0 0 18px; padding: 12px 0 0; border-top: 1px solid var(--line); }
+    .epilogue-label { color: var(--mint); font-size: 9px; letter-spacing: 1.8px; }
+    .epilogue p { margin: 7px 0 0; color: #c1c9c3; font: 14px/1.65 Georgia, "Noto Serif", serif; }
     .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 18px; border-top: 1px solid var(--line); }
     .stat { padding: 14px 0 12px; border-bottom: 1px solid var(--line); }
     .stat:nth-child(odd) { margin-right: 20px; }
@@ -121,8 +133,12 @@
       .topbar { height: 64px; padding: 0 20px; }
       .brand-name { font-size: 15px; }
       .brand-note { display: none; }
-      .ready-panel { left: 24px; top: 47%; width: calc(100% - 48px); }
+      .ready-panel, .story-panel, .result-panel { left: 24px; width: calc(100% - 48px); max-height: calc(100dvh - 88px); overflow-y: auto; }
+      .ready-panel { top: 47%; }
+      .story-panel, .result-panel { top: 52%; }
       h1 { font-size: 46px; }
+      .story-panel h2 { font-size: 34px; }
+      .story-copy { min-height: 0; font-size: 16px; }
       .track-meta { margin: 22px 0 22px; gap: 12px; }
       .track-meta span + span { padding-left: 12px; }
       .difficulty button { min-width: 74px; padding: 10px; }
@@ -157,18 +173,29 @@
     </header>
 
     <section class="ready-panel" id="readyPanel">
-      <div class="kicker">原創節奏遊戲 · 01</div>
+      <div class="kicker">潮汐檔案 · 序章 01</div>
       <h1>潮汐偏移</h1>
       <p class="subtitle">當節拍漂浮，跟著光的方向落下。</p>
-      <div class="track-meta"><span><strong>LOW TIDE / 01</strong></span><span>合成音源</span><span>116 BPM</span></div>
+      <div class="track-meta"><span><strong>第七座潮汐塔</strong></span><span>合成音源</span><span>116 BPM</span></div>
       <p class="difficulty-label">選擇難度</p>
       <div class="difficulty" role="group" aria-label="選擇難度">
         <button type="button" data-difficulty="easy" aria-pressed="false">初見</button>
         <button type="button" data-difficulty="normal" aria-pressed="true">標準</button>
         <button type="button" data-difficulty="hard" aria-pressed="false">流速</button>
       </div>
-      <button class="primary-button" id="startButton" type="button"><span>開始演奏</span><span class="arrow" aria-hidden="true">↗</span></button>
+      <button class="primary-button" id="startButton" type="button"><span>讀取序章</span><span class="arrow" aria-hidden="true">↗</span></button>
       <p class="key-hint">點擊判定 · 空白鍵操作 · 滑動完成 FLICK</p>
+    </section>
+
+    <section class="story-panel" id="storyPanel" aria-live="polite" hidden>
+      <div class="kicker" id="storyKicker">潮汐檔案 · 01 / 03</div>
+      <h2 id="storyTitle"></h2>
+      <p class="story-copy" id="storyCopy"></p>
+      <div class="story-progress" id="storyProgress">01 / 03</div>
+      <div class="story-controls">
+        <button class="text-button" id="storyBack" type="button">返回曲目</button>
+        <button class="primary-button" id="storyContinue" type="button"><span id="storyAction">繼續閱讀</span><span class="arrow" aria-hidden="true">↗</span></button>
+      </div>
     </section>
 
     <div class="right-note" id="sideNote"><strong>A MOVING LINE, A LIVING BEAT</strong>原創合成曲 · 約 30 秒</div>
@@ -185,6 +212,7 @@
       <div class="kicker">演奏完成 · <span id="resultDifficulty">標準</span></div>
       <h2>潮汐已退。</h2>
       <div class="rank" id="rank">A</div>
+      <div class="epilogue"><div class="epilogue-label">解碼結果 · 訊號片段 02</div><p id="epilogueText"></p></div>
       <div class="stats">
         <div class="stat"><span>總分</span><strong id="finalScore">0</strong></div>
         <div class="stat"><span>準確率</span><strong id="accuracy">0.00%</strong></div>
@@ -208,6 +236,7 @@
       const canvas = document.querySelector("#field");
       const ctx = canvas.getContext("2d");
       const readyPanel = document.querySelector("#readyPanel");
+      const storyPanel = document.querySelector("#storyPanel");
       const resultPanel = document.querySelector("#resultPanel");
       const pausePanel = document.querySelector("#pausePanel");
       const hud = document.querySelector("#hud");
@@ -222,6 +251,21 @@
       const beat = 60 / bpm;
       const difficultyNames = { easy: "初見", normal: "標準", hard: "流速" };
       let difficulty = "normal";
+      let storyPage = 0;
+      const storyPages = [
+        {
+          title: "第七座潮汐塔",
+          copy: "海岸線後退的第十九年，六座潮汐塔仍在運轉。今晚，停擺七年的第七塔忽然亮起，敲出一段不屬於任何航道的節拍。"
+        },
+        {
+          title: "沒有座標的來信",
+          copy: "控制台上的光標沒有固定軌道，像一條正在尋找岸的水線。每當你跟上節拍，雜訊裡便多出一個字。"
+        },
+        {
+          title: "寄給明天",
+          copy: "訊號末尾附著一個時間：明天，02:17。收件人是你的值夜代號。最後一行寫著：「如果你聽見潮聲，請替我記住海。」"
+        }
+      ];
       let phase = "ready";
       let chart = [];
       let duration = 0;
@@ -449,6 +493,22 @@
         progress.style.width = "0%";
       }
 
+      function renderStoryPage() {
+        const page = storyPages[storyPage];
+        document.querySelector("#storyKicker").textContent = `潮汐檔案 · 0${storyPage + 1} / 0${storyPages.length}`;
+        document.querySelector("#storyTitle").textContent = page.title;
+        document.querySelector("#storyCopy").textContent = page.copy;
+        document.querySelector("#storyProgress").textContent = `0${storyPage + 1} / 0${storyPages.length}`;
+        document.querySelector("#storyAction").textContent = storyPage === storyPages.length - 1 ? "開始演奏" : "繼續閱讀";
+      }
+
+      function showStory() {
+        storyPage = 0;
+        renderStoryPage();
+        readyPanel.hidden = true;
+        storyPanel.hidden = false;
+      }
+
       async function startGame() {
         resetRun();
         try {
@@ -463,6 +523,7 @@
         }
         phase = "playing";
         readyPanel.hidden = true;
+        storyPanel.hidden = true;
         resultPanel.hidden = true;
         pausePanel.hidden = true;
         document.querySelector("#sideNote").hidden = true;
@@ -571,6 +632,12 @@
         document.querySelector("#maxCombo").textContent = String(maxCombo);
         document.querySelector("#judgementCounts").textContent = `${counts.perfect} / ${counts.good} / ${counts.miss}`;
         document.querySelector("#rank").textContent = accuracy >= 99 ? "S" : accuracy >= 90 ? "A" : accuracy >= 75 ? "B" : accuracy >= 60 ? "C" : "D";
+        const ending = accuracy >= 99
+          ? "訊號完整解碼。發信者欄位顯示：值夜員本人。傳送時間是明天 02:17。"
+          : accuracy >= 75
+            ? "你拼回了半句：「明天不要讓第七塔熄滅。」訊號座標指向舊海岸。"
+            : "校準中斷前，最後一個清晰字音是你的值夜代號。第七塔的燈，仍然亮著。";
+        document.querySelector("#epilogueText").textContent = ending;
         if (audio && audio.state === "running") audio.suspend();
       }
 
@@ -597,7 +664,17 @@
           document.querySelectorAll("[data-difficulty]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
         });
       });
-      document.querySelector("#startButton").addEventListener("click", startGame);
+      document.querySelector("#startButton").addEventListener("click", showStory);
+      document.querySelector("#storyBack").addEventListener("click", () => {
+        storyPanel.hidden = true;
+        readyPanel.hidden = false;
+      });
+      document.querySelector("#storyContinue").addEventListener("click", () => {
+        if (storyPage < storyPages.length - 1) {
+          storyPage++;
+          renderStoryPage();
+        } else startGame();
+      });
       document.querySelector("#retryButton").addEventListener("click", startGame);
       document.querySelector("#resumeButton").addEventListener("click", togglePause);
       pauseButton.addEventListener("click", togglePause);
